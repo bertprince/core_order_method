@@ -3,35 +3,13 @@
 import json
 from typing import List, Any
 import math
-import cv2
-import pymysql
 
-host = '47.93.14.103'
-user = 'stu_Liang'
-password = 'bertLiang514'
-port = 3306
-dataset = 'corecatalog_db'
-mysql = pymysql.connect(host=host, user=user, password=password, port=port)
-cursor = mysql.cursor()
-a = 1
-b = 130
-for count in range(a, b):
-    sql = 'select image_data from corecatalog_db.drill_info where drill_no=' + str(count) + ';'
-    cursor.execute(sql)
-    result = cursor.fetchall()  # tuple数据
-    image_dataStr = result[0][0]
-    json_str = json.loads(image_dataStr)
-    # print(json_str)
-    # print(type(json_str))
-    # data0为原始数据组，未经过排序和处理
+def ReorderCoreJason(json_str):
     data0 = json_str['results']
     # 确定第一个矩形框，距离远点最近的
     length_2_Ori=float("inf")
     NotCardNum = 0
     NotCardSum = 0
-    HeightList = []
-    YList = []
-    XList = []
     DropItem = []
     for m in range(len(data0)):
         if data0[m]['location']['height']<=50 or data0[m]['location']['width']<=20:
@@ -51,19 +29,7 @@ for count in range(a, b):
         if data0[i]['name']!="card":
             NotCardNum += 1
             NotCardSum += float(data0[i]['location']['height'])
-
-        # 获得所有Height值和top（y）值
-        HeightList += [data0[i]['location']['height']]
-        YList += [data0[i]['location']['top']]
-        # 修正Xlisyt，现在为3倍数据，应该为两倍
-        XList += [data0[i]['location']['left']]
-        XList += [data0[i]['location']['left']]+[data0[i]['location']['width']]
     NotCardHeightMean = 0
-    # HeightMax = max(HeightList)#未用到
-    # MinY_ori = min(YList)
-    MinX = min(XList)
-    MaxX = max(XList)
-    ListYmin = []
     if NotCardNum != 0:
         NotCardHeightMean = NotCardSum / NotCardNum
         # ---20200212---平均值效果更好---
@@ -81,7 +47,6 @@ for count in range(a, b):
                 for k in range(len(data0)):
                     ylist += [data0[k]['location']['top']]
                 minY = min(ylist)
-                ListYmin.append(minY)
                 if emptyLoopFactor > 0:
                     emptyLoopFactor = 0
 
@@ -116,48 +81,9 @@ for count in range(a, b):
                 emptyLoopFactor += 0.5
                 print ("已删除数据为：%s，本次minY= %s,mean= %s， 剩余数据为： %s" % (RowGroup,minY,NotCardHeightMean,data0))
                 break
+    json_str['results'] = RowGroup
+    return json_str
 
-    # 引入数据
-    # host = '47.93.14.103'
-    # user = 'stu_Liang'
-    # password = 'bertLiang514'
-    # port = 3306
-    # dataset = 'corecatalog_db'
-    # mysql = pymysql.connect(host=host, user=user, password=password, port=port)
-    # cursor = mysql.cursor()
-    # sql = 'select image from corecatalog_db.drill_info where drill_no = "1";'
-    #
-    # cursor.execute(sql)
-    # result = cursor.fetchall() # tuple数据
-
-    # bytes_stream = BytesIO(result[0][0]) #result[0][0]为bytes类型数据
-    # byte_array = numpy.frombuffer(bytes_stream)
-    # Displayimg = Image.open(bytes_stream)
-    # lena = mpimg.imread('001.jpg')
-    # image = cv2.imread(lena)
-    # plt.imshow(image)
-    # plt.axis('off')
-    # plt.show()
-    color = [(0, 255, 2), (255, 0, 0), (0, 0, 255), (0, 100, 0), (100, 100, 0), (20, 30, 50), (0, 0, 20)]
-    # 需要优化，没有对应图片的化，需要自动从数据库读取
-    image = cv2.imread('F:\\Py Files\\PyProjects\\CoreLineModification\\images\\' + str(count) + '.jpg')
-    font = cv2.FONT_HERSHEY_SIMPLEX
-
-    for i in range(len(RowGroup)):
-        cv2.line(image,(int(MinX),int(ListYmin[i]+i*NotCardHeightMean)),(int(MaxX),int(ListYmin[i]+i*NotCardHeightMean)),color[i],5)
-        for j in range(len(RowGroup[i])):
-            xmin = float(RowGroup[i][j]['location']['left'])
-            ymin = float(RowGroup[i][j]['location']['top'])
-            xmax = xmin + float(RowGroup[i][j]['location']['width'])
-            ymax = ymin + float(RowGroup[i][j]['location']['height'])
-            cv2.rectangle(image, (int(xmin), int(ymin)), (int(xmax), int(ymax)), color[i], 5)
-            cv2.putText(image, str(i+1)+"-"+str(j+1), (int(xmin), int(ymin)), font, 2, (255, 255, 255), 5)
-    dir = 'F:\\Py Files\\PyProjects\\CoreLineModification\\images\\' + str(str(count) + '_marked.jpg')
-    cv2.imwrite(dir, image)
-
-    # print('%.2f' % NotCardHeightMean)
-    # print(groupNum)
-    # print(result)
-    print('完成了' + str(count-a) + '/' + str(b-a) + '张图片的标记')
-
-
+jsondata = []#引入识别后的json数据
+reorderedData = ReorderCoreJason(jsondata)
+print (reorderedData)
